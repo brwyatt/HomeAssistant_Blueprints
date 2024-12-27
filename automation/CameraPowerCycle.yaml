@@ -1,0 +1,62 @@
+blueprint:
+  name: Camera Power Cycle
+  description: Power cycles a camera by toggling its switch if it is still unavailable after being turned on for some time.
+  domain: automation
+  input:
+    power_switch:
+      name: Power Switch
+      description: The switch that controls the device's power.
+      selector:
+        entity:
+          domain: switch
+    camera:
+      name: Camera
+      description: The camera entity to monitor.
+      selector:
+        entity:
+          domain: camera
+    delay:
+      name: Delay
+      description: Delay after the switch turns on before checking camera availability (in minutes).
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
+    power_cycle_delay:
+      name: Power Cycle Delay
+      description: Delay after the switch is confirmed off before it should be turned back on (in seconds).
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: seconds
+
+trigger:
+  - platform: state
+    entity_id: !input power_switch
+    to: 'on'
+    for:
+      minutes: !input delay
+
+condition:
+  - condition: state
+    entity_id: !input camera
+    state: unavailable
+
+action:
+  - service: switch.turn_off
+    target:
+      entity_id: !input power_switch
+  - wait_for_trigger:
+      - platform: state
+        entity_id: !input power_switch
+        to: 'off'
+        for:
+          seconds: !input power_cycle_delay
+  - service: switch.turn_on
+    target:
+      entity_id: !input power_switch
+mode: single
