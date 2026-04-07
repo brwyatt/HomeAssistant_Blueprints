@@ -43,19 +43,15 @@ blueprint:
           min: 1
           max: 10
           unit_of_measurement: seconds
-    notification_actions:
-      name: Notification Actions
-      description: Actions to take if the anomaly threshold is met.
+    notify_service:
+      name: Notification Service
+      description: The service to use for notifications (e.g., notify.mobile_app_iphone).
       selector:
-        action: {}
+        service:
+          domain: notify
 
 mode: single
 max_exceeded: silent
-
-variables:
-  # Derive unique ID from camera entity (e.g., camera.front_door -> front_door)
-  unique_id: "{{ camera_entity.split('.')[1] }}"
-  camera_name: "{{ state_attr(camera_entity, 'friendly_name') | default(unique_id) }}"
 
 trigger:
   - platform: state
@@ -64,7 +60,13 @@ trigger:
     to: 'on'
 
 action:
-  # Capture 3 snapshots
+  # Initialize variables locally within the action block for reliability
+  - variables:
+      camera_input: !input camera_entity
+      unique_id: "{{ camera_input.split('.')[1] }}"
+      camera_name: "{{ state_attr(camera_input, 'friendly_name') | default(unique_id) }}"
+
+  # Capture sequence
   - service: camera.snapshot
     data:
       filename: "/config/www/ai_snapshots/{{ unique_id }}_1.jpg"
@@ -94,9 +96,20 @@ action:
         Ignore static background elements like wall-mounted tablets or furniture. 
         Focus solely on movement and potential threats.
       structure:
-        anomaly_score: number
-        summary: string
-        description: string
+        anomaly_score:
+          description: "A score from 0-100 indicating the threat or interest level."
+          selector:
+            number:
+              min: 0
+              max: 100
+        summary:
+          description: "A 3-5 word headline describing the main event."
+          selector:
+            text:
+        description:
+          description: "A concise 1-2 sentence description of the action."
+          selector:
+            text:
       attachments:
         - media_content_id: "media-source://local/ai_snapshots/{{ unique_id }}_1.jpg"
           media_content_type: "image/jpeg"
@@ -106,7 +119,7 @@ action:
           media_content_type: "image/jpeg"
     response_variable: ai_response
 
-  # Set processed variables for use in notification_actions
+  # Process result
   - variables:
       ai_data: "{{ ai_response.data }}"
       score: "{{ ai_data.anomaly_score | default(0) | int }}"
@@ -115,12 +128,21 @@ action:
         {% elif score >= 40 %} Moderate
         {% else %} Low
         {% endif %}
-      image_url: "/local/ai_snapshots/{{ unique_id }}_1.jpg"
+      # Accessible URL for mobile notifications
+      image_path: "/local/ai_snapshots/{{ unique_id }}_1.jpg"
 
-  # Conditional execution based on score
+  # Conditional Notification
   - if:
       - condition: template
         value_template: "{{ score >= (anomaly_threshold | int) }}"
     then:
-      - choose: []
-        default: !input notification_actions
+      - service: !input notify_service
+        data:
+          title: "{{ ai_data.summary }} ({{ threat_level }})"
+          message: "{{ ai_data.description }}"
+          data:
+            # Compatibility for both iOS and Android notification images
+            image: "{{ image_path }}"
+            attachment:
+              url: "{{ image_path }}"
+              content-type: jpeg
