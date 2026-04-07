@@ -1,0 +1,126 @@
+blueprint:
+  name: AI Security Camera Analyzer
+  description: >
+    Analyzes camera footage using AI when a sensor is triggered.
+    Captures 3 snapshots and sends them to an AI Task (like Gemini) for structured analysis.
+    
+    Prerequisite: Create the folder `/config/www/ai_snapshots/` in your Home Assistant configuration.
+  domain: automation
+  input:
+    trigger_sensor:
+      name: Trigger Sensor
+      description: The binary sensor that triggers the analysis (e.g., motion/person detector).
+      selector:
+        entity:
+          domain: binary_sensor
+    camera_entity:
+      name: Camera
+      description: The camera to capture snapshots from.
+      selector:
+        entity:
+          domain: camera
+    ai_task_entity:
+      name: AI Task Entity
+      description: The AI task entity (e.g., Google AI Gemini) to perform the analysis.
+      selector:
+        entity:
+          domain: ai_task
+    anomaly_threshold:
+      name: Anomaly Threshold
+      description: Minimum anomaly score (0-100) to trigger notifications.
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    capture_interval:
+      name: Capture Interval
+      description: Seconds between the 3 image captures.
+      default: 2
+      selector:
+        number:
+          min: 1
+          max: 10
+          unit_of_measurement: seconds
+    notification_actions:
+      name: Notification Actions
+      description: Actions to take if the anomaly threshold is met.
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+
+variables:
+  # Derive unique ID from camera entity (e.g., camera.front_door -> front_door)
+  unique_id: "{{ camera_entity.split('.')[1] }}"
+  camera_name: "{{ state_attr(camera_entity, 'friendly_name') | default(unique_id) }}"
+
+trigger:
+  - platform: state
+    entity_id: !input trigger_sensor
+    from: 'off'
+    to: 'on'
+
+action:
+  # Capture 3 snapshots
+  - service: camera.snapshot
+    data:
+      filename: "/config/www/ai_snapshots/{{ unique_id }}_1.jpg"
+    target:
+      entity_id: !input camera_entity
+  - delay: !input capture_interval
+  - service: camera.snapshot
+    data:
+      filename: "/config/www/ai_snapshots/{{ unique_id }}_2.jpg"
+    target:
+      entity_id: !input camera_entity
+  - delay: !input capture_interval
+  - service: camera.snapshot
+    data:
+      filename: "/config/www/ai_snapshots/{{ unique_id }}_3.jpg"
+    target:
+      entity_id: !input camera_entity
+
+  # AI Analysis with Structured Output
+  - service: ai_task.generate_data
+    data:
+      entity_id: !input ai_task_entity
+      task_name: Security Camera Analysis
+      instructions: >-
+        Analyze these 3 sequential images from the '{{ camera_name }}' camera.
+        Identify any moving objects, people, or animals that are suspicious or anomalous.
+        Ignore static background elements like wall-mounted tablets or furniture. 
+        Focus solely on movement and potential threats.
+      structure:
+        anomaly_score: number
+        summary: string
+        description: string
+      attachments:
+        - media_content_id: "media-source://local/ai_snapshots/{{ unique_id }}_1.jpg"
+          media_content_type: "image/jpeg"
+        - media_content_id: "media-source://local/ai_snapshots/{{ unique_id }}_2.jpg"
+          media_content_type: "image/jpeg"
+        - media_content_id: "media-source://local/ai_snapshots/{{ unique_id }}_3.jpg"
+          media_content_type: "image/jpeg"
+    response_variable: ai_response
+
+  # Set processed variables for use in notification_actions
+  - variables:
+      ai_data: "{{ ai_response.data }}"
+      score: "{{ ai_data.anomaly_score | default(0) | int }}"
+      threat_level: >-
+        {% if score >= 80 %} High
+        {% elif score >= 40 %} Moderate
+        {% else %} Low
+        {% endif %}
+      image_url: "/local/ai_snapshots/{{ unique_id }}_1.jpg"
+
+  # Conditional execution based on score
+  - if:
+      - condition: template
+        value_template: "{{ score >= (anomaly_threshold | int) }}"
+    then:
+      - choose: []
+        default: !input notification_actions
