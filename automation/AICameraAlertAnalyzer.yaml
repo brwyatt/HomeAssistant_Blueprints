@@ -110,11 +110,11 @@ action:
           selector:
             text:
       attachments:
-        - media_content_id: "media-source://local/ai_snapshots/{{ unique_id }}_1.jpg"
+        - media_content_id: "media-source://media_source/local/ai_snapshots/{{ unique_id }}_1.jpg"
           media_content_type: "image/jpeg"
-        - media_content_id: "media-source://local/ai_snapshots/{{ unique_id }}_2.jpg"
+        - media_content_id: "media-source://media_source/local/ai_snapshots/{{ unique_id }}_2.jpg"
           media_content_type: "image/jpeg"
-        - media_content_id: "media-source://local/ai_snapshots/{{ unique_id }}_3.jpg"
+        - media_content_id: "media-source://media_source/local/ai_snapshots/{{ unique_id }}_3.jpg"
           media_content_type: "image/jpeg"
     response_variable: ai_response
 
