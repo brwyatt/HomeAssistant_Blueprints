@@ -68,19 +68,19 @@ action:
   # Capture sequence
   - service: camera.snapshot
     data:
-      filename: "/config/www/ai_snapshots/{{ unique_id }}_1.jpg"
+      filename: "/media/ai_snapshots/{{ unique_id }}_1.jpg"
     target:
       entity_id: !input camera_entity
   - delay: !input capture_interval
   - service: camera.snapshot
     data:
-      filename: "/config/www/ai_snapshots/{{ unique_id }}_2.jpg"
+      filename: "/media/ai_snapshots/{{ unique_id }}_2.jpg"
     target:
       entity_id: !input camera_entity
   - delay: !input capture_interval
   - service: camera.snapshot
     data:
-      filename: "/config/www/ai_snapshots/{{ unique_id }}_3.jpg"
+      filename: "/media/ai_snapshots/{{ unique_id }}_3.jpg"
     target:
       entity_id: !input camera_entity
 
