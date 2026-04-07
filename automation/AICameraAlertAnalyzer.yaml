@@ -64,6 +64,7 @@ action:
       camera_id: !input camera_entity
       unique_id: "{{ camera_id.split('.')[1] }}"
       camera_name: "{{ state_attr(camera_id, 'friendly_name') | default(unique_id) }}"
+      anomaly_threshold: !input anomaly_threshold
 
   # Capture sequence
   - service: camera.snapshot
@@ -128,7 +129,7 @@ action:
         {% else %} Low
         {% endif %}
       # Accessible URL for mobile notifications
-      image_path: "/local/ai_snapshots/{{ unique_id }}_1.jpg"
+      image_path: "/media/local/ai_snapshots/{{ unique_id }}_1.jpg"
 
   # Conditional Notification
   - if:
