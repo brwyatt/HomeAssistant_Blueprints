@@ -47,8 +47,7 @@ blueprint:
       name: Notification Service
       description: The service to use for notifications (e.g., notify.mobile_app_iphone).
       selector:
-        service:
-          domain: notify
+        text: {}
 
 mode: single
 max_exceeded: silent
@@ -60,11 +59,11 @@ trigger:
     to: 'on'
 
 action:
-  # Initialize variables locally within the action block for reliability
+  # Map inputs to variables inside the action block for reliable template evaluation
   - variables:
-      camera_input: !input camera_entity
-      unique_id: "{{ camera_input.split('.')[1] }}"
-      camera_name: "{{ state_attr(camera_input, 'friendly_name') | default(unique_id) }}"
+      camera_id: !input camera_entity
+      unique_id: "{{ camera_id.split('.')[1] }}"
+      camera_name: "{{ state_attr(camera_id, 'friendly_name') | default(unique_id) }}"
 
   # Capture sequence
   - service: camera.snapshot
@@ -97,7 +96,7 @@ action:
         Focus solely on movement and potential threats.
       structure:
         anomaly_score:
-          description: "A score from 0-100 indicating the threat or interest level."
+          description: "A score from 0-100 indicating the threat level."
           selector:
             number:
               min: 0
